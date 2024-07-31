@@ -24,7 +24,10 @@ class EndpointExtractor(ast.NodeVisitor):
             if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
                 if decorator.func.attr == 'route':
                     route_path = decorator.args[0].value
-                    methods = [m.s for m in decorator.keywords[0].value.elts]
+                    if decorator.keywords == []:
+                        methods = ["GET"]
+                    else:
+                        methods = [m.s for m in decorator.keywords[0].value.elts]
                     if route_path not in self.routes:
                         self.routes[route_path] = []
                     self.routes[route_path].append((methods, node))

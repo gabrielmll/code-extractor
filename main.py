@@ -6,10 +6,10 @@ from import_finder import analyze_code
 
 
 def main():
-    repository_path = '/home/gabrielpires/workspace/robos/nice'
-    endpoint_file_path = f'{repository_path}/app.py'
+    repository_path = '/home/gabrielpires/workspace/robos/hermes'
+    endpoint_file_path = f'{repository_path}/hermes/api/v3/v3.py'
     repository_name = repository_path.split("/")[-1]
-    route = '/solve_captcha'
+    route = '/schedule_orion'
     method = 'POST'
 
     imports, assignments, function_code = extract_endpoint(endpoint_file_path, route, method)

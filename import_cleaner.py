@@ -24,7 +24,7 @@ class ImportCleaner(ast.NodeTransformer):
         return self.generic_visit(node)
 
 
-def clean_imports(code, lib_name:None):
+def clean_imports(code):
     tree = ast.parse(code)
     cleaner = ImportCleaner()
     cleaner.visit(tree)

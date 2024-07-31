@@ -1,76 +1,92 @@
-import ast
 import os
+import ast
+import json
 
-def get_imports_from_code(code):
+def find_imports(code, proprietary_repository):
+    """
+    Parse the code and extract import statements.
+    """
     tree = ast.parse(code)
-    imports = []
-
+    imports = {}
+    
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            module = node.module
+        if isinstance(node, ast.Import):
             for alias in node.names:
-                name = alias.name
-                asname = alias.asname if alias.asname else alias.name
-                imports.append((module, name, asname))
-
+                imports[alias.name] = alias.asname if alias.asname else alias.name
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module if node.module else ""
+            for alias in node.names:
+                full_name = f"{module}.{alias.name}" if module else alias.name
+                if proprietary_repository in full_name:
+                    imports[full_name] = alias.asname if alias.asname else alias.name
+    
     return imports
 
-def resolve_import_path(repository_path, module, name):
-    module_path = module.replace('.', os.sep)
-    file_path = os.path.join(repository_path, module_path + '.py')
-    if os.path.exists(file_path):
-        return file_path
-    else:
-        directory_path = os.path.join(repository_path, module_path)
-        if os.path.isdir(directory_path):
-            return os.path.join(directory_path, name + '.py')
-    return None
-
-def find_usages(code, imports):
+def get_usages(code, imports):
+    """
+    Parse the code and identify where imported classes, methods, and variables are used.
+    """
     tree = ast.parse(code)
     usages = []
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name):
-                for module, name, asname in imports:
-                    if node.func.id == asname:
-                        usages.append((module, name, 'method'))
-            elif isinstance(node.func, ast.Attribute):
-                for module, name, asname in imports:
-                    if node.func.attr == asname:
-                        usages.append((module, name, 'method'))
+        if isinstance(node, ast.Name):
+            if node.id in imports.values():
+                usages.append(node.id)
         elif isinstance(node, ast.Attribute):
-            for module, name, asname in imports:
-                if node.attr == asname:
-                    usages.append((module, name, 'variable'))
-        elif isinstance(node, ast.Name):
-            for module, name, asname in imports:
-                if node.id == asname:
-                    usages.append((module, name, 'class'))
-
+            if node.attr in imports.values():
+                usages.append(node.attr)
+    
     return usages
 
-def import_finder(repository_path, code):
-    imports = get_imports_from_code(code)
-    usages = find_usages(code, imports)
+def map_imports_to_files(repository_path, imports):
+    """
+    Map import statements to their respective file paths.
+    """
+    mapped_imports = []
 
+    for import_name, alias in imports.items():
+        parts = import_name.split('.')
+        file_path = os.path.join(repository_path, *parts[:-2], parts[-2] + ".py")
+        mapped_imports.append({"import_name": import_name, "file_path": file_path, "alias": alias})
+    
+    return mapped_imports
+
+def identify_usages(mapped_imports, usages):
+    """
+    Identify and categorize usages of classes, methods, and variables.
+    """
     results = []
-    for module, name, usage_type in usages:
-        file_path = resolve_import_path(repository_path, module, name)
-        if file_path:
-            results.append({
-                'type': usage_type,
-                'name': name,
-                'file_path': file_path
-            })
+    for usage in usages:
+        for item in mapped_imports:
+            if item['alias'] == usage or item['import_name'].endswith(usage):
+                if usage.isupper():
+                    type_of_usage = "variable"
+                elif usage[0].isupper():
+                    type_of_usage = "class"
+                else:
+                    type_of_usage = "method"
+                results.append({
+                    "type": type_of_usage,
+                    "name": usage,
+                    "file_path": item["file_path"]
+                })
+                break
+    
+    return results
 
+def analyze_code(repository_path, code, proprietary_repository):
+    imports = find_imports(code, proprietary_repository)
+    usages = get_usages(code, imports)
+    mapped_imports = map_imports_to_files(repository_path, imports)
+    results = identify_usages(mapped_imports, usages)
+    
     return results
 
 def main():
-    import json
     # Example usage
     repository_path = "/home/gabrielpires/workspace/robos/nice"
+    proprietary_repository = repository_path.split("/")[-1]
     code = """
 from flasgger import Swagger, swag_from
 from flask import Flask, jsonify, request
@@ -88,10 +104,10 @@ def solve_captcha():
         return jsonify(captcha_solver.solve(request.form.to_dict()))
     except Exception as exception:
         return (jsonify({'error': {'message': exception.message}}), 500)
-"""
+    """
 
-    results = import_finder(repository_path, code)
+    results = analyze_code(repository_path, code, proprietary_repository)
     print(json.dumps(results, indent=4))
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

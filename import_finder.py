@@ -12,7 +12,8 @@ def find_imports(code, proprietary_repository):
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                imports[alias.name] = alias.asname if alias.asname else alias.name
+                if proprietary_repository in alias.name:
+                    imports[alias.name] = alias.asname if alias.asname else alias.name
         elif isinstance(node, ast.ImportFrom):
             module = node.module if node.module else ""
             for alias in node.names:

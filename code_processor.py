@@ -57,3 +57,15 @@ def extract_code_from_file(file_path, item_name, item_type):
         return "\n".join(imports), extracted_code
     else:
         return "\n".join(imports), None
+    
+def update_codes_to_visit(extracted_code_items):
+    codes_to_visit = []
+
+    for item in extracted_code_items:
+        if 'related_imports' in item and isinstance(item['related_imports'], list):
+            codes_to_visit.extend(item['related_imports'])
+
+    return codes_to_visit
+   
+def is_code_in_combined(code, combined_code):
+    return code in combined_code

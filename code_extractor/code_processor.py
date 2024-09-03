@@ -1,5 +1,5 @@
 import ast
-from import_finder import find_imports, get_usages, map_imports_to_files, identify_usages
+from .import_finder import find_imports, get_usages, map_imports_to_files, identify_usages
 
 def process_codes_to_visit(codes_to_visit, repository_path, proprietary_repository):
     results = []
